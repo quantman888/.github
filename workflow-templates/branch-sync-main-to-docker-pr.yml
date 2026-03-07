@@ -1,0 +1,26 @@
+name: Branch Sync / Main to Docker PR
+
+on:
+  push:
+    branches:
+      - $default-branch
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  open-sync-pr:
+    uses: quantman888/workflow-reusable/.github/workflows/branch-sync-pr.reusable.yml@a7e1aa3beebbcab777534fa4319f1362eb93d2de
+    with:
+      source_branch: $default-branch
+      target_branch: docker
+      pr_title: "chore(sync): merge $default-branch into docker"
+      pr_body: "Automated branch sync PR from the default branch into docker."
+      auto_resolve_theirs_paths: ""
+    secrets:
+      GH_APP_ID: ${{ secrets.GH_APP_ID }}
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      RUNNER_PROBE_TOKEN: ${{ secrets.RUNNER_PROBE_TOKEN }}

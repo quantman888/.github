@@ -1,0 +1,108 @@
+name: Docker Promote
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      OCI_RELEASE_VERSION:
+        description: "Release version (supports v1.2.3, 1.2.3, 1.2.3-rc.N)"
+        required: true
+        type: string
+      OCI_SOURCE_TAG:
+        description: "Source image tag to promote from"
+        required: false
+        type: string
+        default: edge
+      OCI_PUBLISH_LATEST:
+        description: "Also promote latest tag"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  runner_probe:
+    name: Docker Promote / Runner Probe
+    uses: quantman888/workflow-reusable/.github/workflows/runner-fallback.reusable.yml@a7e1aa3beebbcab777534fa4319f1362eb93d2de
+    with:
+      RUNNER_SELF_HOSTED_LABELS: ${{ vars.RUNNER_SELF_HOSTED_LABELS || 'self-hosted,linux,x64' }}
+      RUNNER_GITHUB_HOSTED_LABEL: ${{ vars.RUNNER_GITHUB_HOSTED_LABEL || 'ubuntu-latest' }}
+      RUNNER_FALLBACK_POLICY: github-hosted
+    secrets:
+      runner_probe_token: ${{ secrets.RUNNER_PROBE_TOKEN }}
+
+  test:
+    name: Docker Promote / Test
+    needs: [runner_probe]
+    runs-on: ${{ fromJSON(needs.runner_probe.outputs.selected_runs_on_json) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: TODO replace with repository test command
+        run: |
+          echo "Replace this step with repo-specific test/build verification before enabling Docker promote." >&2
+          exit 1
+
+  resolve_promote_inputs:
+    name: Docker Promote / Resolve Inputs
+    needs: [runner_probe, test]
+    runs-on: ${{ fromJSON(needs.runner_probe.outputs.selected_runs_on_json) }}
+    outputs:
+      release_version: ${{ steps.resolve.outputs.release_version }}
+      source_tag: ${{ steps.resolve.outputs.source_tag }}
+      publish_latest: ${{ steps.resolve.outputs.publish_latest }}
+    steps:
+      - name: Resolve promotion inputs
+        id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_BODY: ${{ github.event.release.body }}
+          INPUT_OCI_RELEASE_VERSION: ${{ github.event.inputs.OCI_RELEASE_VERSION }}
+          INPUT_OCI_SOURCE_TAG: ${{ github.event.inputs.OCI_SOURCE_TAG }}
+          INPUT_OCI_PUBLISH_LATEST: ${{ github.event.inputs.OCI_PUBLISH_LATEST }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${EVENT_NAME}" == "release" ]]; then
+            release_version="${RELEASE_TAG:-}"
+            publish_latest="true"
+            source_tag="$(printf '%s\n' "${RELEASE_BODY:-}" | sed -nE 's/^[[:space:]]*OCI_SOURCE_TAG[[:space:]]*[:=][[:space:]]*([^[:space:]]+)[[:space:]]*$/\1/p' | head -n1 || true)"
+            if [[ -z "${source_tag}" ]]; then
+              source_tag="edge"
+            fi
+          else
+            release_version="${INPUT_OCI_RELEASE_VERSION:-}"
+            source_tag="${INPUT_OCI_SOURCE_TAG:-edge}"
+            if [[ "${INPUT_OCI_PUBLISH_LATEST:-true}" == "true" ]]; then
+              publish_latest="true"
+            else
+              publish_latest="false"
+            fi
+          fi
+
+          {
+            echo "release_version=${release_version}"
+            echo "source_tag=${source_tag}"
+            echo "publish_latest=${publish_latest}"
+          } >> "${GITHUB_OUTPUT}"
+
+  promote:
+    name: Docker Promote / Promote Tags
+    needs: [runner_probe, resolve_promote_inputs]
+    uses: quantman888/workflow-reusable/.github/workflows/docker-promote.reusable.yml@a7e1aa3beebbcab777534fa4319f1362eb93d2de
+    with:
+      RUNS_ON_JSON: ${{ needs.runner_probe.outputs.selected_runs_on_json }}
+      OCI_REGISTRY: ${{ vars.NEXUS_REGISTRY }}
+      OCI_IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+      OCI_RELEASE_VERSION: ${{ needs.resolve_promote_inputs.outputs.release_version }}
+      OCI_SOURCE_TAG: ${{ needs.resolve_promote_inputs.outputs.source_tag }}
+      OCI_PUBLISH_LATEST: ${{ needs.resolve_promote_inputs.outputs.publish_latest == 'true' }}
+    secrets:
+      registry_username: ${{ secrets.NEXUS_USERNAME }}
+      registry_password: ${{ secrets.NEXUS_PASSWORD }}

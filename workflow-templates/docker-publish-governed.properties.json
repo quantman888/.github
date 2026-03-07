@@ -1,0 +1,14 @@
+{
+  "name": "Docker Publish (Governed)",
+  "description": "Bootstrap a Docker publish workflow that uses runner probe and quantman888/workflow-reusable.",
+  "iconName": "octicon package",
+  "categories": [
+    "Docker",
+    "Continuous integration"
+  ],
+  "filePatterns": [
+    "^Dockerfile",
+    "^dockerfile",
+    "^docker-compose\\.ya?ml$"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Workflow Ref Policy",
+  "description": "Enforce pinned SHA or controlled v* tags for workflow uses references.",
+  "iconName": "octicon shield-check",
+  "categories": [
+    "Automation",
+    "Utilities"
+  ]
+}

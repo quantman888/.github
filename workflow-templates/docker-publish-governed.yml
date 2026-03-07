@@ -1,0 +1,132 @@
+name: Docker Publish
+
+on:
+  pull_request:
+    branches: [$default-branch]
+  push:
+    branches: [$default-branch]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  runner_probe:
+    name: Docker Publish / Runner Probe
+    uses: quantman888/workflow-reusable/.github/workflows/runner-fallback.reusable.yml@a7e1aa3beebbcab777534fa4319f1362eb93d2de
+    with:
+      RUNNER_SELF_HOSTED_LABELS: ${{ vars.RUNNER_SELF_HOSTED_LABELS || 'self-hosted,linux,x64' }}
+      RUNNER_GITHUB_HOSTED_LABEL: ${{ vars.RUNNER_GITHUB_HOSTED_LABEL || 'ubuntu-latest' }}
+      RUNNER_FALLBACK_POLICY: github-hosted
+    secrets:
+      runner_probe_token: ${{ secrets.RUNNER_PROBE_TOKEN }}
+
+  test:
+    name: Docker Publish / Test
+    needs: [runner_probe]
+    runs-on: ${{ fromJSON(needs.runner_probe.outputs.selected_runs_on_json) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: TODO replace with repository test command
+        run: |
+          echo "Replace this step with repo-specific test/build verification before enabling Docker publish." >&2
+          exit 1
+
+  publish_pr:
+    name: Docker Publish / PR Dry Run
+    if: ${{ github.event_name == 'pull_request' }}
+    needs: [runner_probe, test]
+    uses: quantman888/workflow-reusable/.github/workflows/docker-publish.reusable.yml@a7e1aa3beebbcab777534fa4319f1362eb93d2de
+    with:
+      RUNS_ON_JSON: ${{ needs.runner_probe.outputs.selected_runs_on_json }}
+      OCI_REGISTRY: ${{ vars.NEXUS_REGISTRY }}
+      OCI_IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+      OCI_DOCKERFILE_PATH: ${{ vars.DOCKERFILE_PATH || 'Dockerfile' }}
+      OCI_BUILD_CONTEXT: ${{ vars.BUILD_CONTEXT || '.' }}
+      OCI_TARGET_PLATFORMS: ${{ vars.TARGET_PLATFORMS || 'linux/amd64' }}
+      OCI_BUILD_ARGS: ${{ vars.BUILD_ARGS || '' }}
+      OCI_PUSH_IMAGE: false
+      OCI_PUBLISH_CHANNEL: none
+      OCI_PUBLISH_LATEST: false
+
+  publish_push_main:
+    name: Docker Publish / Main Edge
+    if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    needs: [runner_probe, test]
+    uses: quantman888/workflow-reusable/.github/workflows/docker-publish.reusable.yml@a7e1aa3beebbcab777534fa4319f1362eb93d2de
+    with:
+      RUNS_ON_JSON: ${{ needs.runner_probe.outputs.selected_runs_on_json }}
+      OCI_REGISTRY: ${{ vars.NEXUS_REGISTRY }}
+      OCI_IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+      OCI_DOCKERFILE_PATH: ${{ vars.DOCKERFILE_PATH || 'Dockerfile' }}
+      OCI_BUILD_CONTEXT: ${{ vars.BUILD_CONTEXT || '.' }}
+      OCI_TARGET_PLATFORMS: ${{ vars.TARGET_PLATFORMS || 'linux/amd64' }}
+      OCI_BUILD_ARGS: ${{ vars.BUILD_ARGS || '' }}
+      OCI_GATE_VULN_IGNORE_UNFIXED: true
+      OCI_PUSH_IMAGE: true
+      OCI_PUBLISH_CHANNEL: edge
+      OCI_PUBLISH_LATEST: false
+    secrets:
+      nexus_username: ${{ secrets.NEXUS_USERNAME }}
+      nexus_password: ${{ secrets.NEXUS_PASSWORD }}
+
+  publish_workflow_dispatch:
+    name: Docker Publish / Manual Edge
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: [runner_probe, test]
+    uses: quantman888/workflow-reusable/.github/workflows/docker-publish.reusable.yml@a7e1aa3beebbcab777534fa4319f1362eb93d2de
+    with:
+      RUNS_ON_JSON: ${{ needs.runner_probe.outputs.selected_runs_on_json }}
+      OCI_REGISTRY: ${{ vars.NEXUS_REGISTRY }}
+      OCI_IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+      OCI_DOCKERFILE_PATH: ${{ vars.DOCKERFILE_PATH || 'Dockerfile' }}
+      OCI_BUILD_CONTEXT: ${{ vars.BUILD_CONTEXT || '.' }}
+      OCI_TARGET_PLATFORMS: ${{ vars.TARGET_PLATFORMS || 'linux/amd64' }}
+      OCI_BUILD_ARGS: ${{ vars.BUILD_ARGS || '' }}
+      OCI_GATE_VULN_IGNORE_UNFIXED: true
+      OCI_PUSH_IMAGE: true
+      OCI_PUBLISH_CHANNEL: edge
+      OCI_PUBLISH_LATEST: false
+    secrets:
+      nexus_username: ${{ secrets.NEXUS_USERNAME }}
+      nexus_password: ${{ secrets.NEXUS_PASSWORD }}
+
+  publish_summary:
+    name: Docker Publish / Summary
+    if: ${{ always() && !cancelled() }}
+    needs: [runner_probe, publish_pr, publish_push_main, publish_workflow_dispatch]
+    runs-on: ${{ fromJSON(needs.runner_probe.outputs.selected_runs_on_json) }}
+    outputs:
+      image_with_digest: ${{ needs.publish_pr.outputs.image_with_digest || needs.publish_push_main.outputs.image_with_digest || needs.publish_workflow_dispatch.outputs.image_with_digest }}
+      image_ref: ${{ needs.publish_pr.outputs.image_ref || needs.publish_push_main.outputs.image_ref || needs.publish_workflow_dispatch.outputs.image_ref }}
+      image_tags: ${{ needs.publish_pr.outputs.image_tags || needs.publish_push_main.outputs.image_tags || needs.publish_workflow_dispatch.outputs.image_tags }}
+      digest: ${{ needs.publish_pr.outputs.digest || needs.publish_push_main.outputs.digest || needs.publish_workflow_dispatch.outputs.digest }}
+    steps:
+      - name: Resolve summary outputs
+        id: summary
+        run: |
+          image_with_digest="${{ needs.publish_pr.outputs.image_with_digest || needs.publish_push_main.outputs.image_with_digest || needs.publish_workflow_dispatch.outputs.image_with_digest }}"
+          image_ref="${{ needs.publish_pr.outputs.image_ref || needs.publish_push_main.outputs.image_ref || needs.publish_workflow_dispatch.outputs.image_ref }}"
+          image_tags="${{ needs.publish_pr.outputs.image_tags || needs.publish_push_main.outputs.image_tags || needs.publish_workflow_dispatch.outputs.image_tags }}"
+          digest="${{ needs.publish_pr.outputs.digest || needs.publish_push_main.outputs.digest || needs.publish_workflow_dispatch.outputs.digest }}"
+
+          {
+            echo "image_with_digest=${image_with_digest}"
+            echo "image_ref=${image_ref}"
+            echo "image_tags=${image_tags}"
+            echo "digest=${digest}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Show reusable workflow outputs
+        run: |
+          {
+            echo "### Docker Publish Summary"
+            echo ""
+            echo "- image_with_digest: \`${{ steps.summary.outputs.image_with_digest }}\`"
+            echo "- image_ref: \`${{ steps.summary.outputs.image_ref }}\`"
+            echo "- image_tags: \`${{ steps.summary.outputs.image_tags }}\`"
+            echo "- digest: \`${{ steps.summary.outputs.digest }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"

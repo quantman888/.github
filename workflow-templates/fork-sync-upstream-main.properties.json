@@ -1,0 +1,9 @@
+{
+  "name": "Fork Sync Upstream Main",
+  "description": "Fast-forward sync the default branch from an upstream repository using the organization GitHub App.",
+  "iconName": "octicon repo-forked",
+  "categories": [
+    "Automation",
+    "Utilities"
+  ]
+}

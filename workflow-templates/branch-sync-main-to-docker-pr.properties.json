@@ -1,0 +1,9 @@
+{
+  "name": "Branch Sync Main to Docker PR",
+  "description": "Open or reuse PRs from the default branch into docker using the organization GitHub App.",
+  "iconName": "octicon git-pull-request",
+  "categories": [
+    "Automation",
+    "Utilities"
+  ]
+}

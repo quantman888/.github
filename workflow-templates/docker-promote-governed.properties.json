@@ -1,0 +1,14 @@
+{
+  "name": "Docker Promote (Governed)",
+  "description": "Bootstrap a digest-based Docker promote workflow that uses quantman888/workflow-reusable.",
+  "iconName": "octicon rocket",
+  "categories": [
+    "Docker",
+    "Deployment"
+  ],
+  "filePatterns": [
+    "^Dockerfile",
+    "^dockerfile",
+    "^docker-compose\\.ya?ml$"
+  ]
+}
