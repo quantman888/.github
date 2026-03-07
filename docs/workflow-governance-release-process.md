@@ -90,6 +90,7 @@
 - 业务仓内存在 `reusable-workflow-update-pr.yml`
 - 中央发布后，通过 `workflow-reusable` 内的 `release-dispatch-consumers.yml` 向这些仓触发 `reusable-workflow-release` 事件，或手动 dispatch 其 updater workflow
 - updater workflow 调用 `quantman888/workflow-reusable/.github/workflows/reusable-workflow-update-pr.reusable.yml`
+- updater 默认一次升级 caller 仓 `.github/workflows/` 下所有指向 `quantman888/workflow-reusable` 的 refs；仅在需要局部灰度时才显式传单个 `reusable_workflow_path`
 - 由 GitHub App bot 开升级 PR
 - 仓库在 PR 上执行测试、策略校验、发布 dry-run，验证通过后再合并
 

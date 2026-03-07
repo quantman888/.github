@@ -14,7 +14,7 @@ permissions:
 jobs:
   runner_probe:
     name: Docker Publish / Runner Probe
-    uses: quantman888/workflow-reusable/.github/workflows/runner-fallback.reusable.yml@a7e1aa3beebbcab777534fa4319f1362eb93d2de
+    uses: quantman888/workflow-reusable/.github/workflows/runner-fallback.reusable.yml@120185f677ab0a42d93e1289bcd2002b88f17d89
     with:
       RUNNER_SELF_HOSTED_LABELS: ${{ vars.RUNNER_SELF_HOSTED_LABELS || 'self-hosted,linux,x64' }}
       RUNNER_GITHUB_HOSTED_LABEL: ${{ vars.RUNNER_GITHUB_HOSTED_LABEL || 'ubuntu-latest' }}
@@ -39,7 +39,7 @@ jobs:
     name: Docker Publish / PR Dry Run
     if: ${{ github.event_name == 'pull_request' }}
     needs: [runner_probe, test]
-    uses: quantman888/workflow-reusable/.github/workflows/docker-publish.reusable.yml@a7e1aa3beebbcab777534fa4319f1362eb93d2de
+    uses: quantman888/workflow-reusable/.github/workflows/docker-publish.reusable.yml@120185f677ab0a42d93e1289bcd2002b88f17d89
     with:
       RUNS_ON_JSON: ${{ needs.runner_probe.outputs.selected_runs_on_json }}
       OCI_REGISTRY: ${{ vars.NEXUS_REGISTRY }}
@@ -56,7 +56,7 @@ jobs:
     name: Docker Publish / Main Edge
     if: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
     needs: [runner_probe, test]
-    uses: quantman888/workflow-reusable/.github/workflows/docker-publish.reusable.yml@a7e1aa3beebbcab777534fa4319f1362eb93d2de
+    uses: quantman888/workflow-reusable/.github/workflows/docker-publish.reusable.yml@120185f677ab0a42d93e1289bcd2002b88f17d89
     with:
       RUNS_ON_JSON: ${{ needs.runner_probe.outputs.selected_runs_on_json }}
       OCI_REGISTRY: ${{ vars.NEXUS_REGISTRY }}
@@ -77,7 +77,7 @@ jobs:
     name: Docker Publish / Manual Edge
     if: ${{ github.event_name == 'workflow_dispatch' }}
     needs: [runner_probe, test]
-    uses: quantman888/workflow-reusable/.github/workflows/docker-publish.reusable.yml@a7e1aa3beebbcab777534fa4319f1362eb93d2de
+    uses: quantman888/workflow-reusable/.github/workflows/docker-publish.reusable.yml@120185f677ab0a42d93e1289bcd2002b88f17d89
     with:
       RUNS_ON_JSON: ${{ needs.runner_probe.outputs.selected_runs_on_json }}
       OCI_REGISTRY: ${{ vars.NEXUS_REGISTRY }}

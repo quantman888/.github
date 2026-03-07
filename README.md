@@ -34,7 +34,7 @@
 
 当前模板统一 pin 到：
 
-- `quantman888/workflow-reusable@a7e1aa3beebbcab777534fa4319f1362eb93d2de`
+- `quantman888/workflow-reusable@120185f677ab0a42d93e1289bcd2002b88f17d89`
 
 规则：
 
@@ -52,6 +52,7 @@
   - 基于 digest 的 release promote 模板
 - `workflow-templates/reusable-workflow-update-pr.yml`
   - 升级中央 reusable ref 的 PR 模板
+  - 默认一次更新该仓 `.github/workflows/` 下所有指向 `quantman888/workflow-reusable` 的 central refs
 - `workflow-templates/workflow-ref-policy.yml`
   - `uses:` 引用 pin 策略模板
 - `workflow-templates/branch-sync-main-to-docker-pr.yml`
@@ -116,9 +117,10 @@ private 仓库不能把长期 PAT 当成通用方案。组织基线是：
 ## 当前组织覆盖概览（2026-03-07）
 
 - 已完成 Docker 基线覆盖：`mcphub-gateway`、`mcp-didatodolist`
-- 部分等价覆盖但仍建议补齐模板基线：`ksrpc`
+- 已完成 branch-sync / fork-sync / policy / updater 治理闭环：`ksrpc`
+- 已完成非 Docker caller 的 policy / updater / runner-fallback 治理基线：`infra`
 - 定制治理仓，不应直接硬套 Docker 基线：`cortex`
-- 暂未进入这些模板的适用场景：`infra`、`platform`、`dagster`
+- 暂未进入这些模板的适用场景：`platform`、`dagster`
 - 控制面/模板基础设施仓：`workflow-reusable`、`.github`
 
 详细结论见审计报告：[`docs/org-workflow-baseline-audit-2026-03-07.md`](docs/org-workflow-baseline-audit-2026-03-07.md)

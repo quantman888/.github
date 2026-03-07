@@ -24,10 +24,10 @@ on:
         type: string
         default: "quantman888/workflow-reusable"
       reusable_workflow_path:
-        description: "Reusable workflow path in source repository"
+        description: "Reusable workflow path in source repository. Leave empty to update all refs to quantman888/workflow-reusable in this repository."
         required: false
         type: string
-        default: ".github/workflows/docker-publish.reusable.yml"
+        default: ""
       source_repository:
         description: "Dispatch source repository (optional audit trail)"
         required: false
@@ -45,7 +45,7 @@ concurrency:
 jobs:
   runner_probe:
     name: Reusable Workflow Update / Runner Probe
-    uses: quantman888/workflow-reusable/.github/workflows/runner-fallback.reusable.yml@a7e1aa3beebbcab777534fa4319f1362eb93d2de
+    uses: quantman888/workflow-reusable/.github/workflows/runner-fallback.reusable.yml@120185f677ab0a42d93e1289bcd2002b88f17d89
     with:
       RUNNER_SELF_HOSTED_LABELS: ${{ vars.RUNNER_SELF_HOSTED_LABELS || 'self-hosted,linux,x64' }}
       RUNNER_GITHUB_HOSTED_LABEL: ${{ vars.RUNNER_GITHUB_HOSTED_LABEL || 'ubuntu-latest' }}
@@ -55,14 +55,14 @@ jobs:
 
   update-reusable-workflow-ref:
     needs: [runner_probe]
-    uses: quantman888/workflow-reusable/.github/workflows/reusable-workflow-update-pr.reusable.yml@a7e1aa3beebbcab777534fa4319f1362eb93d2de
+    uses: quantman888/workflow-reusable/.github/workflows/reusable-workflow-update-pr.reusable.yml@120185f677ab0a42d93e1289bcd2002b88f17d89
     with:
       RUNS_ON_JSON: ${{ needs.runner_probe.outputs.selected_runs_on_json }}
       target_ref: ${{ github.event.inputs.target_ref || github.event.client_payload.target_ref || '' }}
       target_sha: ${{ github.event.inputs.target_sha || github.event.client_payload.target_sha || '' }}
       target_tag: ${{ github.event.inputs.target_tag || github.event.client_payload.target_tag || '' }}
       reusable_repo: ${{ github.event.inputs.reusable_repo || github.event.client_payload.reusable_repo || 'quantman888/workflow-reusable' }}
-      reusable_workflow_path: ${{ github.event.inputs.reusable_workflow_path || github.event.client_payload.reusable_workflow_path || '.github/workflows/docker-publish.reusable.yml' }}
+      reusable_workflow_path: ${{ github.event.inputs.reusable_workflow_path || github.event.client_payload.reusable_workflow_path || '' }}
       source_repository: ${{ github.event.inputs.source_repository || github.event.client_payload.source_repository || '' }}
     secrets:
       GH_APP_ID: ${{ secrets.GH_APP_ID }}

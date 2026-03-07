@@ -32,9 +32,9 @@
 | 结论分类 | 仓库 |
 | --- | --- |
 | 已完整覆盖适用基线 | `mcphub-gateway`、`mcp-didatodolist` |
-| 部分等价覆盖，仍建议补齐组织模板基线 | `ksrpc` |
+| 已纳入 branch-sync / fork-sync / policy / updater 组织治理闭环 | `ksrpc` |
+| 已纳入非 Docker caller 的 policy / updater / runner-fallback 治理基线 | `infra` |
 | 定制治理仓，模板部分适用 | `cortex` |
-| 暂不适用当前模板基线，但已有局部中央治理接入 | `infra` |
 | 当前无 workflow，暂待业务类型明确 | `platform`、`dagster` |
 | 组织基础设施仓，不按 caller 基线考核 | `.github`、`workflow-reusable` |
 
@@ -97,22 +97,22 @@
 - `main-to-docker-pr.yml`
 - `sync-upstream.yml`
 
-结论：部分等价覆盖，但尚未补齐组织模板基线。
+结论：已纳入组织治理闭环，但 Docker 发布/发布版 promote 仍保留仓内实现。
 
 说明：
 
 - `sync-upstream.yml` 已通过中央 `fork-sync.reusable.yml` 做 upstream sync
 - `main-to-docker-pr.yml` 已通过中央 `branch-sync-pr.reusable.yml` 做 `main -> docker` 开 PR
-- `docker-publish.yml` / `docker-release.yml` 仍保留较多仓库内自定义逻辑，并未统一切到组织模板基线
-- 当前远端 branch-sync / fork-sync 仍 pin 在较老 SHA（`3a74494444ebf60ec855923fe1f98c111e9a8270`），与模板仓当前 blessed SHA 不一致
-- 缺少面向组织治理的 `workflow-ref-policy.yml`
-- 缺少面向后续统一升级的 `reusable-workflow-update-pr.yml`
+- `sync-upstream.yml` 与 `main-to-docker-pr.yml` 已统一升级到当前 blessed SHA
+- 已补 `workflow-ref-policy.yml`
+- 已补 `reusable-workflow-update-pr.yml`
+- `reusable-workflow-update-pr.yml` 默认可一次升级仓内全部 central reusable refs，适配 `ksrpc` 这种多 path 调用仓
+- `docker-publish.yml` / `docker-release.yml` 仍保留较多仓库内自定义逻辑，没有强行改造成模板化 Docker 基线，这是有意保留的仓库特化
 
-建议动作：
+后续建议：
 
-1. 先补 `workflow-ref-policy.yml`
-2. 再补 `reusable-workflow-update-pr.yml`
-3. 评估是否将 `docker-publish.yml` / `docker-release.yml` 收敛到组织模板或中央 reusable 的标准调用面
+1. 继续评估是否将 `docker-publish.yml` / `docker-release.yml` 逐步收敛到组织模板或中央 reusable 的标准调用面
+2. 保持 `ops/sync` 作为默认分支承载自动化，避免上游同步分支污染
 
 ### 3.4 `cortex`
 
@@ -147,19 +147,19 @@
 
 - `commit-message-guard.yml`
 
-结论：当前不适用 Docker/fork/branch-sync 模板基线，但已经局部接入中央 runner probe。
+结论：已纳入非 Docker caller 的治理基线。
 
 说明：
 
-- 当前仅有 commit message guard，不属于本轮模板覆盖目标
-- 该 workflow 已通过中央 `runner-fallback.reusable.yml` 接入 runner probe
-- 目前 pin 到较老 SHA（`8399681997e0822753ffe04761821784f1ac9a7c`）
+- 当前仍只有 commit message guard 这一个业务 workflow，但已经纳入统一治理闭环
+- 已补 `workflow-ref-policy.yml`
+- 已补 `reusable-workflow-update-pr.yml`
+- `commit-message-guard.yml` 已升级到当前 blessed SHA 的 `runner-fallback.reusable.yml`
 
-建议动作：
+后续建议：
 
 1. 现阶段无需补 Docker/fork/branch-sync 模板
-2. 如后续继续引入更多中央 reusable，优先补 `workflow-ref-policy.yml`
-3. 在下一轮中央升级时，把 runner-fallback pin 统一到新的 blessed SHA
+2. 如后续引入更多中央 reusable，直接复用现有 updater/policy 基线即可
 
 ### 3.6 `platform`
 
@@ -224,20 +224,7 @@
 
 ## 4. 缺口与优先级
 
-### P1：立即补齐
-
-- `ksrpc`
-  - 补 `workflow-ref-policy.yml`
-  - 补 `reusable-workflow-update-pr.yml`
-
-### P2：下一轮统一 pin 升级时处理
-
-- `ksrpc`
-  - 把 branch sync / fork sync 的旧 SHA 升级到 blessed SHA
-- `infra`
-  - 把 `runner-fallback` 的旧 SHA 升级到 blessed SHA
-
-### P3：待业务形态明确后再接入
+### P1：待业务形态明确后再接入
 
 - `platform`
 - `dagster`
@@ -247,8 +234,9 @@
 截至 2026-03-07，`quantman888` 组织的 workflow 治理状态可以概括为：
 
 - Docker 基线已经在 `mcphub-gateway` 与 `mcp-didatodolist` 形成可复用样板
-- `ksrpc` 已具备部分等价能力，但还没有完全进入组织级模板与升级闭环
+- `ksrpc` 已完成 branch-sync / fork-sync / policy / updater 的组织级治理闭环，剩余差异主要是仓库特化的 Docker 发布实现
 - `cortex` 属于定制治理仓，应保持单独治理路径，不应被误纳入 Docker 模板基线
+- `infra` 已进入非 Docker caller 的治理闭环，后续若继续接中央 reusable 不需要再补基线文件
 - `.github` 与 `workflow-reusable` 的职责边界已经清晰：前者负责模板入口，后者负责运行时 control plane
 
-下一步最有价值的动作不是继续造新模板，而是把 `ksrpc` 补齐到组织级升级闭环里。
+下一步最有价值的动作不是继续造新模板，而是根据业务形态决定 `platform` / `dagster` 未来各自该接哪类模板。

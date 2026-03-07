@@ -36,6 +36,7 @@
 2. 将 `upstream_repo`、`upstream_branch` 改成真实上游。
 3. 如仓库还会继续引用中央 reusable，补 `workflow-ref-policy.yml`。
 4. 如希望以后统一升级 pin，补 `reusable-workflow-update-pr.yml`。
+   该 workflow 默认会一次升级当前仓 `.github/workflows/` 下所有指向 `quantman888/workflow-reusable` 的 central refs。
 5. 手动触发一次 `fork-sync-upstream-main`，确认 GitHub App 写回成功。
 
 ## 4. Branch-split 仓接入步骤
@@ -43,6 +44,7 @@
 1. 确认仓库确实存在长期 `docker` 分支。
 2. 新增 `branch-sync-main-to-docker-pr.yml`。
 3. 把 `workflow-ref-policy.yml` 与 `reusable-workflow-update-pr.yml` 一起接入。
+   其中 updater workflow 默认会一次升级仓内所有 central reusable refs，不需要按单个 path 分开维护。
 4. 如果 `docker` 分支还负责镜像发布，再追加 Docker publish/promote 模板。
 5. 手动触发一次 branch sync，确认能自动开 PR 或复用已有 PR。
 
