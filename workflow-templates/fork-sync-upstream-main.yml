@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   sync-upstream:
-    uses: quantman888/workflow-reusable/.github/workflows/fork-sync.reusable.yml@120185f677ab0a42d93e1289bcd2002b88f17d89
+    uses: quantman888/workflow-reusable/.github/workflows/fork-sync.reusable.yml@edbf24560d25b0bc79c83dcc60af0af9d0bf1e45
     with:
       target_branch: $default-branch
       upstream_repo: upstream-owner/upstream-repo

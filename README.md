@@ -34,7 +34,7 @@
 
 当前模板统一 pin 到：
 
-- `quantman888/workflow-reusable@120185f677ab0a42d93e1289bcd2002b88f17d89`
+- `quantman888/workflow-reusable@edbf24560d25b0bc79c83dcc60af0af9d0bf1e45`
 
 规则：
 
