@@ -1,103 +1,130 @@
 # quantman888/.github
 
-This repository hosts organization-level workflow templates for `quantman888`.
+`quantman888/.github` 是 `quantman888` 组织的 GitHub 配置仓，不承载业务代码。
 
-Control-plane reusable workflows stay in `quantman888/workflow-reusable`.
-This repository only provides bootstrap templates that new repositories can pick from the GitHub Actions UI.
+它只负责三类事情：
 
-## Design split
+- 提供组织级 GitHub Actions workflow templates，供新仓库从 Actions UI 直接选用
+- 维护新仓接入、升级、审计这三类组织级文档入口
+- 固化一套长期可维护的 workflow 治理基线，避免各仓库各自复制、各自漂移
 
-- `quantman888/workflow-reusable`
-  - Runtime control plane
-  - GitHub App token minting
-  - Runner probe and fallback
-  - Docker publish/promote
-  - Branch sync PR
-  - Reusable workflow ref update PR
-  - GitHub App secret sync control plane
+它不负责运行时控制逻辑。真正执行 Docker 发布、分支同步、runner 探测、GitHub App 写回、批量更新 PR 的地方仍然是 `quantman888/workflow-reusable`。
+
+## 仓库分工
+
 - `quantman888/.github`
-  - Organization workflow templates
-  - New repository bootstrap entrypoints
-  - Shared onboarding guidance
+  - 模板入口
+  - 新仓 bootstrap
+  - 接入说明、升级规范、组织审计
+- `quantman888/workflow-reusable`
+  - 可复用工作流与控制面实现
+  - GitHub App token minting
+  - 私有仓 `GH_APP_*` 下发
+  - Docker publish/promote
+  - fork sync / branch sync PR
+  - reusable workflow ref 批量升级 PR
 
-## Current pinned control-plane ref
+## 文档入口
 
-All templates in this repository pin to:
+- [新仓库接入清单](docs/new-repo-onboarding-checklist.md)
+- [workflow 治理发布与升级规范](docs/workflow-governance-release-process.md)
+- [组织基线审计报告（2026-03-07）](docs/org-workflow-baseline-audit-2026-03-07.md)
+
+## 当前受控 control-plane pin
+
+当前模板统一 pin 到：
 
 - `quantman888/workflow-reusable@a7e1aa3beebbcab777534fa4319f1362eb93d2de`
 
-Do not switch templates to floating branches.
-When `workflow-reusable` changes, use the organization update workflow to open bump PRs.
+规则：
 
-## Template catalog
+- 不允许把模板改成 `@main` 或 `@master`
+- 模板仓只更新“已验证通过”的受控 SHA
+- `workflow-reusable` 升级后，通过 caller 仓内的 `reusable-workflow-update-pr` 开 PR 做统一 bump
 
-- `docker-publish-governed.yml`
-  - Docker build/publish workflow with runner probe and central reusable workflow
-  - Includes an explicit `TODO` test step that must be replaced per repository
-- `docker-promote-governed.yml`
-  - Digest-based promote workflow for release tags
-  - Supports release body override via `OCI_SOURCE_TAG: ...`
-- `reusable-workflow-update-pr.yml`
-  - Opens PRs to bump pinned reusable workflow refs in caller repositories
-- `workflow-ref-policy.yml`
-  - Enforces full SHA or controlled `v*` tag pinning for `uses:` references
-- `branch-sync-main-to-docker-pr.yml`
-  - Opens or reuses PRs from default branch into `docker`
-- `fork-sync-upstream-main.yml`
-  - Fast-forward sync from upstream repository into the current default branch
+## 模板目录
 
-## Recommended bootstrap order
+- `workflow-templates/docker-publish-governed.yml`
+  - Docker 构建/发布入口模板
+  - 内置 runner probe
+  - 必须替换仓库级测试步骤
+- `workflow-templates/docker-promote-governed.yml`
+  - 基于 digest 的 release promote 模板
+- `workflow-templates/reusable-workflow-update-pr.yml`
+  - 升级中央 reusable ref 的 PR 模板
+- `workflow-templates/workflow-ref-policy.yml`
+  - `uses:` 引用 pin 策略模板
+- `workflow-templates/branch-sync-main-to-docker-pr.yml`
+  - `main -> docker` 的自动同步 PR 模板
+- `workflow-templates/fork-sync-upstream-main.yml`
+  - fork 仓默认分支同步模板
 
-For a new Dockerized service repository:
+## 新仓推荐接入顺序
 
-1. Add `workflow-ref-policy.yml`
-2. Add `reusable-workflow-update-pr.yml`
-3. Add `docker-publish-governed.yml`
-4. Add `docker-promote-governed.yml`
-5. Replace the placeholder test steps with repository-specific commands
+Docker 服务仓：
 
-For a fork-maintained repository:
+1. `workflow-ref-policy.yml`
+2. `reusable-workflow-update-pr.yml`
+3. `docker-publish-governed.yml`
+4. `docker-promote-governed.yml`
+5. 把模板中的 `TODO replace with repository test command` 换成仓库自己的测试命令
 
-1. Add `fork-sync-upstream-main.yml`
-2. Optionally add `workflow-ref-policy.yml`
-3. Optionally add `reusable-workflow-update-pr.yml`
+Fork 维护仓：
 
-For a branch-split repository with a long-lived `docker` branch:
+1. `fork-sync-upstream-main.yml`
+2. `workflow-ref-policy.yml`（推荐）
+3. `reusable-workflow-update-pr.yml`（推荐）
 
-1. Add `branch-sync-main-to-docker-pr.yml`
-2. Add `workflow-ref-policy.yml`
-3. Add `reusable-workflow-update-pr.yml`
+存在长期 `docker` 分支的 branch-split 仓：
 
-## Required organization secrets and variables
+1. `branch-sync-main-to-docker-pr.yml`
+2. `workflow-ref-policy.yml`
+3. `reusable-workflow-update-pr.yml`
+4. 如该仓还负责镜像发布，再补 Docker 模板
 
-Expected across repositories:
+## 组织级 secrets / vars 基线
 
-- `GH_APP_ID`
-- `GH_APP_PRIVATE_KEY`
-- `RUNNER_PROBE_TOKEN`
-- `RUNNER_SELF_HOSTED_LABELS` (variable, optional)
-- `RUNNER_GITHUB_HOSTED_LABEL` (variable, optional)
+所有接入中央治理的仓库，至少应准备：
 
-Docker repositories also typically need:
+- `GH_APP_ID`（secret）
+- `GH_APP_PRIVATE_KEY`（secret）
+- `RUNNER_PROBE_TOKEN`（secret）
+- `RUNNER_SELF_HOSTED_LABELS`（variable，可选）
+- `RUNNER_GITHUB_HOSTED_LABEL`（variable，可选）
 
-- `NEXUS_REGISTRY` (variable)
-- `IMAGE_NAME` (variable)
-- `NEXUS_USERNAME` (secret)
-- `NEXUS_PASSWORD` (secret)
-- `DOCKERFILE_PATH` (variable, optional)
-- `BUILD_CONTEXT` (variable, optional)
-- `TARGET_PLATFORMS` (variable, optional)
-- `BUILD_ARGS` (variable, optional)
+Docker 仓通常还需要：
 
-## Private repository onboarding
+- `NEXUS_REGISTRY`（variable）
+- `IMAGE_NAME`（variable）
+- `NEXUS_USERNAME`（secret）
+- `NEXUS_PASSWORD`（secret）
+- `DOCKERFILE_PATH`（variable，可选）
+- `BUILD_CONTEXT`（variable，可选）
+- `TARGET_PLATFORMS`（variable，可选）
+- `BUILD_ARGS`（variable，可选）
 
-Private repositories should receive `GH_APP_ID` and `GH_APP_PRIVATE_KEY` through the control-plane workflow in `quantman888/workflow-reusable`:
+注意：当前模板统一从 `secrets.GH_APP_ID` 读取 GitHub App ID，不要只配 organization variable 而不配 secret。
 
-- `.github/workflows/github-app-secret-sync.controlplane.yml`
+## Private 仓库接入规则
 
-That workflow scans organization repositories through the GitHub API and syncs the GitHub App secrets without hardcoded repository lists.
+private 仓库不能把长期 PAT 当成通用方案。组织基线是：
 
-## Operational rule
+- 顶层长期凭据只保留 `GH_APP_ID` + `GH_APP_PRIVATE_KEY`
+- private 仓库所需的同名 secrets 通过 `quantman888/workflow-reusable` 内的 `.github/workflows/github-app-secret-sync.controlplane.yml` 自动下发
+- 不维护硬编码仓库名单，新仓库在后续同步周期内自动纳入
 
-Templates are starters, not the source of truth.
-Once a repository is bootstrapped, the canonical implementation remains the workflow file inside that repository plus the reusable workflows in `quantman888/workflow-reusable`.
+## 当前组织覆盖概览（2026-03-07）
+
+- 已完成 Docker 基线覆盖：`mcphub-gateway`、`mcp-didatodolist`
+- 部分等价覆盖但仍建议补齐模板基线：`ksrpc`
+- 定制治理仓，不应直接硬套 Docker 基线：`cortex`
+- 暂未进入这些模板的适用场景：`infra`、`platform`、`dagster`
+- 控制面/模板基础设施仓：`workflow-reusable`、`.github`
+
+详细结论见审计报告：[`docs/org-workflow-baseline-audit-2026-03-07.md`](docs/org-workflow-baseline-audit-2026-03-07.md)
+
+## 运行规则
+
+- 模板是 bootstrap 入口，不是最终真相来源
+- 业务仓一旦接入，实际生效的是该仓自己的 workflow 文件和 `quantman888/workflow-reusable` 的可复用工作流
+- 仓库级差异应只保留业务测试、镜像参数、分支模型等必要差异；不要把中央控制逻辑复制回业务仓长期分叉维护
