@@ -15,7 +15,6 @@
 | Docker 服务仓 | 仓库负责镜像构建/发布/发布版 promote | `workflow-ref-policy.yml`、`reusable-workflow-update-pr.yml`、`docker-publish-governed.yml`、`docker-promote-governed.yml` | `branch-sync-main-to-docker-pr.yml`（若存在长期 `docker` 分支） | `fork-sync-upstream-main.yml` |
 | Fork 维护仓 | 需要周期性把上游仓库同步到本仓默认分支 | `fork-sync-upstream-main.yml` | `workflow-ref-policy.yml`、`reusable-workflow-update-pr.yml` | Docker 模板（除非该仓也负责镜像） |
 | Branch-split 仓 | 默认分支负责同步，`docker` 分支负责构建/定制 | `branch-sync-main-to-docker-pr.yml`、`workflow-ref-policy.yml`、`reusable-workflow-update-pr.yml` | Docker 模板、fork sync 模板 | 无 |
-| 配置/基础设施仓 | 仓库保存线上 SSOT，需定时检查远端配置漂移 | `config-drift-nightly.yml` | `workflow-ref-policy.yml`、`reusable-workflow-update-pr.yml` | Docker / fork-sync 模板 |
 | 定制治理仓 | 例如 `cortex` 这类自身已经有专门控制面和非 Docker 主流程 | 无固定模板基线，先按 control plane 设计 | 可局部借用 `workflow-ref-policy.yml` | 不要机械套用 Docker 基线 |
 
 ## 2. Docker 服务仓接入步骤
@@ -49,30 +48,6 @@
 4. 如果 `docker` 分支还负责镜像发布，再追加 Docker publish/promote 模板。
 5. 手动触发一次 branch sync，确认能自动开 PR 或复用已有 PR。
 
-## 4.1 配置/基础设施仓接入步骤
-
-1. 新增 `config-drift-nightly.yml`。
-2. 把 `DRIFT_FILE_MAP` 改成仓库内 SSOT 文件到远端绝对路径的真实映射。
-3. 配置仓库变量与密钥：
-   - `DRIFT_SSH_HOST`
-   - `DRIFT_SSH_PORT`
-   - `DRIFT_SSH_USER`
-   - `DRIFT_MAIL_TO`
-   - `DRIFT_MAIL_FROM`
-   - `DRIFT_MAIL_SMTP_HOST`
-   - `DRIFT_MAIL_SMTP_PORT`
-   - `DRIFT_MAIL_SMTP_STARTTLS`
-   - `DRIFT_MAIL_SMTP_SSL`
-   - `DRIFT_SSH_PRIVATE_KEY`
-   - `DRIFT_SSH_KNOWN_HOSTS`
-   - `DRIFT_MAIL_SMTP_USERNAME`
-   - `DRIFT_MAIL_SMTP_PASSWORD`
-4. 推荐一并接入 `workflow-ref-policy.yml` 与 `reusable-workflow-update-pr.yml`，后续统一升级 central workflow refs。
-5. 手动触发一次 `config-drift-nightly`，确认：
-   - 能成功 SSH 拉取远端文件
-   - 无漂移时 workflow 通过
-   - 人工制造一个测试差异后，能正确失败并发送邮件
-
 ## 5. 必备变量与密钥
 
 ### 5.1 所有中央治理仓通用
@@ -85,25 +60,7 @@
 | `RUNNER_SELF_HOSTED_LABELS` | variable | 否 | self-hosted labels，默认 `self-hosted,linux,x64`。 |
 | `RUNNER_GITHUB_HOSTED_LABEL` | variable | 否 | fallback label，默认 `ubuntu-latest`。 |
 
-### 5.2 配置漂移检测仓附加项
-
-| 名称 | 类型 | 是否必须 | 说明 |
-| --- | --- | --- | --- |
-| `DRIFT_SSH_HOST` | variable | 是 | 目标机器主机名或 IP。 |
-| `DRIFT_SSH_PORT` | variable | 否 | 默认 `22`。 |
-| `DRIFT_SSH_USER` | variable | 否 | 默认 `root`。 |
-| `DRIFT_MAIL_TO` | variable | 是 | 漂移告警收件人。 |
-| `DRIFT_MAIL_FROM` | variable | 是 | 漂移告警发件人。 |
-| `DRIFT_MAIL_SMTP_HOST` | variable | 是 | SMTP 主机。 |
-| `DRIFT_MAIL_SMTP_PORT` | variable | 否 | 默认 `587`。 |
-| `DRIFT_MAIL_SMTP_STARTTLS` | variable | 否 | 默认 `true`。 |
-| `DRIFT_MAIL_SMTP_SSL` | variable | 否 | 默认 `false`。 |
-| `DRIFT_SSH_PRIVATE_KEY` | secret | 是 | 只读 SSH 私钥。 |
-| `DRIFT_SSH_KNOWN_HOSTS` | secret | 是 | 固定的 known_hosts 内容。 |
-| `DRIFT_MAIL_SMTP_USERNAME` | secret | 是 | SMTP 登录用户名。 |
-| `DRIFT_MAIL_SMTP_PASSWORD` | secret | 是 | SMTP 登录密码。 |
-
-### 5.3 Docker 仓附加项
+### 5.2 Docker 仓附加项
 
 | 名称 | 类型 | 是否必须 | 说明 |
 | --- | --- | --- | --- |
@@ -116,7 +73,7 @@
 | `TARGET_PLATFORMS` | variable | 否 | 默认 `linux/amd64`。 |
 | `BUILD_ARGS` | variable | 否 | 多行 `KEY=VALUE`。 |
 
-### 5.4 Public / Private 规则
+### 5.3 Public / Private 规则
 
 - public 仓可直接使用 organization secrets。
 - private 仓应通过 `quantman888/workflow-reusable` 的 `github-app-secret-sync.controlplane.yml` 自动下发 `GH_APP_*`。
@@ -158,9 +115,6 @@
 - `reusable-workflow-update-pr.yml` 没有接入，导致以后每次升级都得手工改 SHA
 - branch-sync 模板被接到并不存在 `docker` 分支的仓库
 - fork-sync 模板里 `upstream_repo` 还保留占位值
-- `config-drift-nightly.yml` 里 `DRIFT_FILE_MAP` 还保留模板占位映射
-- 只配置了 SSH 主机，没有配置 `DRIFT_SSH_KNOWN_HOSTS`
-- SMTP 凭据不完整，导致真正漂移时邮件发送步骤失败
 
 ## 9. 不建议的做法
 
