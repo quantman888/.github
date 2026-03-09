@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   open-sync-pr:
-    uses: quantman888/workflow-reusable/.github/workflows/branch-sync-pr.reusable.yml@edbf24560d25b0bc79c83dcc60af0af9d0bf1e45
+    uses: quantman888/workflow-reusable/.github/workflows/branch-sync-pr.reusable.yml@73d95ec5d3d0b1d3cbf78e99e1a8afd2cac8caec
     with:
       source_branch: $default-branch
       target_branch: docker

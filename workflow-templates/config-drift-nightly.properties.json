@@ -1,0 +1,9 @@
+{
+  "name": "Config Drift Nightly",
+  "description": "Nightly SSH-based configuration drift detection with diff artifact and email alert.",
+  "iconName": "octicon shield-check",
+  "categories": [
+    "Automation",
+    "Utilities"
+  ]
+}

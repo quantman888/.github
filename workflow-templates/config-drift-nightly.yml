@@ -1,0 +1,50 @@
+name: config-drift-nightly
+
+on:
+  schedule:
+    - cron: "0 13 * * *" # 21:00 Asia/Shanghai
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: config-drift-nightly
+  cancel-in-progress: false
+
+jobs:
+  runner_probe:
+    name: Config Drift / Runner Probe
+    uses: quantman888/workflow-reusable/.github/workflows/runner-fallback.reusable.yml@73d95ec5d3d0b1d3cbf78e99e1a8afd2cac8caec
+    with:
+      RUNNER_SELF_HOSTED_LABELS: ${{ vars.RUNNER_SELF_HOSTED_LABELS || 'self-hosted,linux,x64' }}
+      RUNNER_GITHUB_HOSTED_LABEL: ${{ vars.RUNNER_GITHUB_HOSTED_LABEL || 'ubuntu-latest' }}
+      RUNNER_FALLBACK_POLICY: github-hosted
+    secrets:
+      runner_probe_token: ${{ secrets.RUNNER_PROBE_TOKEN }}
+
+  drift_check:
+    name: Config Drift / Nightly Check
+    needs: [runner_probe]
+    uses: quantman888/workflow-reusable/.github/workflows/config-drift-ssh.reusable.yml@73d95ec5d3d0b1d3cbf78e99e1a8afd2cac8caec
+    with:
+      RUNS_ON_JSON: ${{ needs.runner_probe.outputs.selected_runs_on_json }}
+      SSH_HOST: ${{ vars.DRIFT_SSH_HOST }}
+      SSH_PORT: ${{ vars.DRIFT_SSH_PORT || '22' }}
+      SSH_USER: ${{ vars.DRIFT_SSH_USER || 'root' }}
+      DRIFT_FILE_MAP: |
+        config/app.conf::/etc/myapp/app.conf
+        config/nginx.conf::/etc/nginx/nginx.conf
+      DRIFT_ARTIFACT_NAME: config-drift-report
+      MAIL_TO: ${{ vars.DRIFT_MAIL_TO || 'ops@example.com' }}
+      MAIL_FROM: ${{ vars.DRIFT_MAIL_FROM || '' }}
+      MAIL_SUBJECT_PREFIX: "[Config Drift]"
+      MAIL_SMTP_HOST: ${{ vars.DRIFT_MAIL_SMTP_HOST || '' }}
+      MAIL_SMTP_PORT: ${{ vars.DRIFT_MAIL_SMTP_PORT || '587' }}
+      MAIL_SMTP_STARTTLS: ${{ vars.DRIFT_MAIL_SMTP_STARTTLS || 'true' }}
+      MAIL_SMTP_SSL: ${{ vars.DRIFT_MAIL_SMTP_SSL || 'false' }}
+    secrets:
+      ssh_private_key: ${{ secrets.DRIFT_SSH_PRIVATE_KEY }}
+      ssh_known_hosts: ${{ secrets.DRIFT_SSH_KNOWN_HOSTS }}
+      mail_smtp_username: ${{ secrets.DRIFT_MAIL_SMTP_USERNAME }}
+      mail_smtp_password: ${{ secrets.DRIFT_MAIL_SMTP_PASSWORD }}

@@ -32,9 +32,9 @@
 
 ## 当前受控 control-plane pin
 
-当前模板统一 pin 到：
+当前模板默认 pin 到：
 
-- `quantman888/workflow-reusable@edbf24560d25b0bc79c83dcc60af0af9d0bf1e45`
+- `quantman888/workflow-reusable@73d95ec5d3d0b1d3cbf78e99e1a8afd2cac8caec`
 
 规则：
 
@@ -55,6 +55,9 @@
   - 默认一次更新该仓 `.github/workflows/` 下所有指向 `quantman888/workflow-reusable` 的 central refs
 - `workflow-templates/workflow-ref-policy.yml`
   - `uses:` 引用 pin 策略模板
+- `workflow-templates/config-drift-nightly.yml`
+  - SSH 拉取远端配置并与仓库 SSOT 严格比对
+  - 漂移时上传 diff artifact 并发送邮件告警
 - `workflow-templates/branch-sync-main-to-docker-pr.yml`
   - `main -> docker` 的自动同步 PR 模板
 - `workflow-templates/fork-sync-upstream-main.yml`
@@ -76,6 +79,12 @@ Fork 维护仓：
 2. `workflow-ref-policy.yml`（推荐）
 3. `reusable-workflow-update-pr.yml`（推荐）
 
+配置/基础设施仓：
+
+1. `config-drift-nightly.yml`
+2. `workflow-ref-policy.yml`（推荐）
+3. `reusable-workflow-update-pr.yml`（推荐）
+
 存在长期 `docker` 分支的 branch-split 仓：
 
 1. `branch-sync-main-to-docker-pr.yml`
@@ -92,6 +101,22 @@ Fork 维护仓：
 - `RUNNER_PROBE_TOKEN`（secret）
 - `RUNNER_SELF_HOSTED_LABELS`（variable，可选）
 - `RUNNER_GITHUB_HOSTED_LABEL`（variable，可选）
+
+配置漂移检测仓通常还需要：
+
+- `DRIFT_SSH_HOST`（variable）
+- `DRIFT_SSH_PORT`（variable，可选）
+- `DRIFT_SSH_USER`（variable，可选）
+- `DRIFT_MAIL_TO`（variable）
+- `DRIFT_MAIL_FROM`（variable）
+- `DRIFT_MAIL_SMTP_HOST`（variable）
+- `DRIFT_MAIL_SMTP_PORT`（variable，可选）
+- `DRIFT_MAIL_SMTP_STARTTLS`（variable，可选）
+- `DRIFT_MAIL_SMTP_SSL`（variable，可选）
+- `DRIFT_SSH_PRIVATE_KEY`（secret）
+- `DRIFT_SSH_KNOWN_HOSTS`（secret）
+- `DRIFT_MAIL_SMTP_USERNAME`（secret）
+- `DRIFT_MAIL_SMTP_PASSWORD`（secret）
 
 Docker 仓通常还需要：
 
