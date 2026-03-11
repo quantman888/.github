@@ -105,6 +105,7 @@ managed PR hardening 的约束也在这一层由 `workflow-reusable` 保证：
 - merge-controller 中的 PR title/body 只承担 routing fingerprint 角色，不作为主信任根
 - 真正的合并信任根是目标 `head_sha` 上的 success status
 - 仍保留同一张 bot PR 持续更新，不引入多 PR 拓扑
+- 通用 updater 使用固定分支 `automation/reusable-workflow-update`，不再按 `target_ref` 派生新 bot 分支
 
 ### 5.5 第五步：补齐 private 仓密钥同步
 

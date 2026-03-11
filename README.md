@@ -35,7 +35,7 @@
 
 当前模板默认 pin 到：
 
-- `quantman888/workflow-reusable@22c6b844d1be361369934bf9300b66e564d4f3d4`
+- `quantman888/workflow-reusable@d9ca777c1c4318ea5b303357585644a479adf0a0`
 
 规则：
 
@@ -43,6 +43,7 @@
 - 模板仓只更新“已验证通过”的受控 SHA
 - `workflow-reusable` 升级后，通过 caller 仓内的 `reusable-workflow-update-pr` 开 PR 做统一 bump
 - 模板层只保留入口与 blessed pin；managed PR hardening 语义始终以 `workflow-reusable` 实现为准
+- 通用 updater 采用固定分支 `automation/reusable-workflow-update`，调用方仓库不再按 target SHA 堆积 bot 分支
 
 ## 模板目录
 
