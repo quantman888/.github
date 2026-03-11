@@ -8,7 +8,7 @@
 - 维护新仓接入、升级、审计这三类组织级文档入口
 - 固化一套长期可维护的 workflow 治理基线，避免各仓库各自复制、各自漂移
 
-它不负责运行时控制逻辑。真正执行 Docker 发布、分支同步、runner 探测、GitHub App 写回、批量更新 PR 的地方仍然是 `quantman888/workflow-reusable`。
+它不负责运行时控制逻辑。真正执行 Docker 发布、分支同步、runner 探测、GitHub App 写回、批量更新 PR，以及 managed PR hardening 的地方仍然是 `quantman888/workflow-reusable`。
 
 ## 仓库分工
 
@@ -23,6 +23,7 @@
   - Docker publish/promote
   - fork sync / branch sync PR
   - reusable workflow ref 批量升级 PR
+  - managed PR hardening（provenance context、merge-controller 信任判定、bot PR 持续更新）
 
 ## 文档入口
 
@@ -34,13 +35,14 @@
 
 当前模板默认 pin 到：
 
-- `quantman888/workflow-reusable@73d95ec5d3d0b1d3cbf78e99e1a8afd2cac8caec`
+- `quantman888/workflow-reusable@22c6b844d1be361369934bf9300b66e564d4f3d4`
 
 规则：
 
 - 不允许把模板改成 `@main` 或 `@master`
 - 模板仓只更新“已验证通过”的受控 SHA
 - `workflow-reusable` 升级后，通过 caller 仓内的 `reusable-workflow-update-pr` 开 PR 做统一 bump
+- 模板层只保留入口与 blessed pin；managed PR hardening 语义始终以 `workflow-reusable` 实现为准
 
 ## 模板目录
 
@@ -129,4 +131,5 @@ private 仓库不能把长期 PAT 当成通用方案。组织基线是：
 
 - 模板是 bootstrap 入口，不是最终真相来源
 - 业务仓一旦接入，实际生效的是该仓自己的 workflow 文件和 `quantman888/workflow-reusable` 的可复用工作流
+- managed PR hardening 的策略边界也在 `workflow-reusable`：模板层不定义 provenance context 语义，不以 PR title/body 作为主信任根，也不派生多 PR 拓扑
 - 仓库级差异应只保留业务测试、镜像参数、分支模型等必要差异；不要把中央控制逻辑复制回业务仓长期分叉维护

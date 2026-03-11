@@ -13,8 +13,8 @@
 
 | 仓库 | 角色 | 负责内容 | 不负责内容 |
 | --- | --- | --- | --- |
-| `quantman888/workflow-reusable` | 控制面 / 实现层 | reusable workflows、runner probe、GitHub App token minting、secret sync、批量升级 PR | 新仓模板入口、组织接入说明 |
-| `quantman888/.github` | 模板入口 / 组织文档层 | `workflow-templates/`、新仓接入清单、升级规范、组织审计报告 | 运行时控制逻辑、业务仓实际执行逻辑 |
+| `quantman888/workflow-reusable` | 控制面 / 实现层 | reusable workflows、runner probe、GitHub App token minting、secret sync、批量升级 PR、managed PR hardening | 新仓模板入口、组织接入说明 |
+| `quantman888/.github` | 模板入口 / 组织文档层 | `workflow-templates/`、新仓接入清单、升级规范、组织审计报告、blessed SHA 入口 pin | 运行时控制逻辑、业务仓实际执行逻辑、managed PR hardening 语义 |
 | 业务仓 | 调用方 / 落地层 | 仓库级测试步骤、变量/密钥映射、业务分支模型 | 中央 reusable 实现、组织模板维护 |
 
 一句话：
@@ -31,6 +31,7 @@
 - private 仓 `GH_APP_*` 通过控制面 workflow 自动同步，不手工维护仓库列表。
 - 升级 caller 仓引用时，优先用 `reusable-workflow-update-pr` 开 PR，而不是直接推默认分支。
 - 模板仓只放 bootstrap 模板，不复制 control plane 实现。
+- managed PR hardening 仍由 `workflow-reusable` 实现；`.github` 模板层只负责入口与 blessed pin。
 
 ## 4. 发布对象
 
@@ -41,6 +42,8 @@
 3. caller 仓：最后由 `reusable-workflow-update-pr` 开 PR 升级各仓引用
 
 这三层必须串行推进，不能跳步骤。
+
+其中第二层只更新入口模板与文档，不在模板仓复写控制面 hardening 逻辑。
 
 ## 5. 标准升级流程
 
@@ -76,7 +79,7 @@
 在 `quantman888/.github` 中做两件事：
 
 1. 把 `workflow-templates/*.yml` 中的中央 `uses:` pin 改到新的 blessed SHA
-2. 如模板接入步骤或变量要求有变化，同步更新接入文档
+2. 如模板接入步骤或变量要求有变化，同步更新接入文档，但不把 control plane 的 hardening 实现复制到模板层
 
 这样做的意义是：
 
@@ -95,6 +98,13 @@
 - 仓库在 PR 上执行测试、策略校验、发布 dry-run，验证通过后再合并
 
 这一步的关键点是“开 PR 升级”，不是“直接改默认分支”。
+
+managed PR hardening 的约束也在这一层由 `workflow-reusable` 保证：
+
+- `cortex` 的 provenance context 使用稳定且单一的名称，避免同一天多次更新产生多张状态语义
+- merge-controller 中的 PR title/body 只承担 routing fingerprint 角色，不作为主信任根
+- 真正的合并信任根是目标 `head_sha` 上的 success status
+- 仍保留同一张 bot PR 持续更新，不引入多 PR 拓扑
 
 ### 5.5 第五步：补齐 private 仓密钥同步
 
@@ -123,7 +133,7 @@
 适用：新的 blessed SHA 已验证完成。
 
 - 更新 `quantman888/.github` 模板 pin
-- 更新模板说明文档
+- 更新模板说明文档，明确模板层只做入口与 blessed pin
 - 合并后，新仓全部从新基线起步
 
 ### 6.3 存量仓升级节奏
