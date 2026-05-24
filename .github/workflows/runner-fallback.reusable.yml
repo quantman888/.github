@@ -1,4 +1,4 @@
-name: Runner Fallback Reusable
+name: REUSABLE / Runner Fallback
 
 on:
   workflow_call:
