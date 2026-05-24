@@ -1,4 +1,4 @@
-name: Reusable Workflow Update PR Reusable
+name: REUSABLE / Workflow Update PR
 
 on:
   workflow_call:

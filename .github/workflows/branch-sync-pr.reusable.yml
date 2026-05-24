@@ -1,4 +1,4 @@
-name: Branch Sync PR Reusable
+name: REUSABLE / Branch Sync PR
 
 on:
   workflow_call:
