@@ -1,0 +1,194 @@
+name: Fork Sync Reusable
+
+on:
+  workflow_call:
+    inputs:
+      target_branch:
+        description: "Fork target branch"
+        required: false
+        type: string
+        default: "main"
+      upstream_repo:
+        description: "Upstream repository in owner/repo format"
+        required: true
+        type: string
+      upstream_branch:
+        description: "Upstream branch to sync from"
+        required: false
+        type: string
+        default: "main"
+      force_reset:
+        description: "Force reset target branch to upstream branch"
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      needs_sync:
+        description: "Whether target branch differs from upstream branch"
+        value: ${{ jobs.fork_sync.outputs.needs_sync }}
+      local_sha:
+        description: "Current local target branch SHA"
+        value: ${{ jobs.fork_sync.outputs.local_sha }}
+      upstream_sha:
+        description: "Current upstream branch SHA"
+        value: ${{ jobs.fork_sync.outputs.upstream_sha }}
+      synced:
+        description: "Whether this run performed sync merge and push"
+        value: ${{ jobs.fork_sync.outputs.synced }}
+    secrets:
+      RUNNER_PROBE_TOKEN:
+        required: false
+      GH_APP_ID:
+        required: true
+      GH_APP_PRIVATE_KEY:
+        required: true
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  runner_probe:
+    name: Fork Sync / Runner Probe
+    uses: ./.github/workflows/runner-fallback.reusable.yml
+    with:
+      RUNNER_SELF_HOSTED_LABELS: ${{ vars.RUNNER_SELF_HOSTED_LABELS || 'self-hosted,linux,x64' }}
+      RUNNER_GITHUB_HOSTED_LABEL: ${{ vars.RUNNER_GITHUB_HOSTED_LABEL || 'ubuntu-latest' }}
+      RUNNER_FALLBACK_POLICY: github-hosted
+    secrets:
+      runner_probe_token: ${{ secrets.RUNNER_PROBE_TOKEN }}
+
+  fork_sync:
+    name: Fork Sync / Fast Forward
+    needs: [runner_probe]
+    runs-on: ${{ fromJSON(needs.runner_probe.outputs.selected_runs_on_json) }}
+    timeout-minutes: 15
+    concurrency:
+      group: fork-sync-${{ github.repository }}-${{ inputs.target_branch }}-${{ inputs.upstream_repo }}-${{ inputs.upstream_branch }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      needs_sync: ${{ steps.compare.outputs.needs_sync }}
+      local_sha: ${{ steps.compare.outputs.local_sha }}
+      upstream_sha: ${{ steps.compare.outputs.upstream_sha }}
+      synced: ${{ steps.finalize.outputs.synced }}
+    steps:
+      - name: Generate GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-workflows: write
+
+      - name: Resolve GitHub App bot identity
+        id: bot_identity
+        uses: quantman888/.github/.github/actions/resolve-github-app-bot@v1
+        with:
+          github-token: ${{ steps.app_token.outputs.token }}
+          app-slug: ${{ steps.app_token.outputs.app-slug }}
+
+      - name: Checkout target branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ inputs.target_branch }}
+          fetch-depth: 0
+          token: ${{ steps.app_token.outputs.token }}
+
+      - name: Configure git user
+        run: |
+          set -euo pipefail
+          git config user.name "${{ steps.bot_identity.outputs.name }}"
+          git config user.email "${{ steps.bot_identity.outputs.email }}"
+
+      - name: Configure upstream remote
+        run: |
+          set -euo pipefail
+          upstream_repo="${{ inputs.upstream_repo }}"
+
+          if git remote get-url upstream >/dev/null 2>&1; then
+            git remote set-url upstream "https://github.com/${upstream_repo}.git"
+          else
+            git remote add upstream "https://github.com/${upstream_repo}.git"
+          fi
+
+      - name: Fetch upstream branch
+        run: |
+          set -euo pipefail
+          upstream_branch="${{ inputs.upstream_branch }}"
+          git fetch --no-tags upstream "${upstream_branch}"
+
+      - name: Compare branch SHAs
+        id: compare
+        run: |
+          set -euo pipefail
+          upstream_branch="${{ inputs.upstream_branch }}"
+          local_sha="$(git rev-parse HEAD)"
+          upstream_sha="$(git rev-parse "upstream/${upstream_branch}")"
+
+          if [[ "${local_sha}" == "${upstream_sha}" ]]; then
+            needs_sync="false"
+          else
+            needs_sync="true"
+          fi
+
+          {
+            echo "needs_sync=${needs_sync}"
+            echo "local_sha=${local_sha}"
+            echo "upstream_sha=${upstream_sha}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Sync target branch from upstream
+        id: sync
+        if: ${{ steps.compare.outputs.needs_sync == 'true' || inputs.force_reset }}
+        env:
+          FORCE_RESET: ${{ inputs.force_reset }}
+        run: |
+          set -euo pipefail
+          target_branch="${{ inputs.target_branch }}"
+          upstream_branch="${{ inputs.upstream_branch }}"
+          local_sha="${{ steps.compare.outputs.local_sha }}"
+          upstream_sha="${{ steps.compare.outputs.upstream_sha }}"
+
+          {
+            echo "### Sync result"
+            echo "- target: ${target_branch}"
+            echo "- upstream: ${{ inputs.upstream_repo }}@${upstream_branch}"
+            echo "- local_sha: ${local_sha}"
+            echo "- upstream_sha: ${upstream_sha}"
+            echo "- force_reset: ${FORCE_RESET}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          if [[ "${FORCE_RESET}" == 'true' ]]; then
+            git reset --hard "upstream/${upstream_branch}"
+            git push --force-with-lease origin "HEAD:${target_branch}"
+            echo "- action: force-reset" >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          if [[ "${local_sha}" == "${upstream_sha}" ]]; then
+            echo "- action: skip-already-up-to-date" >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          git merge --ff-only "upstream/${upstream_branch}"
+          git push origin "HEAD:${target_branch}"
+          echo "- action: fast-forward" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Finalize outputs
+        id: finalize
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          sync_outcome="${{ steps.sync.outcome }}"
+
+          if [[ "${sync_outcome}" == 'success' ]]; then
+            echo "synced=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "synced=false" >> "${GITHUB_OUTPUT}"
+          fi

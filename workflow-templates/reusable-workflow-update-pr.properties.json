@@ -1,6 +1,6 @@
 {
   "name": "Reusable Workflow Ref Update PR",
-  "description": "Open PRs that bump pinned refs to quantman888/workflow-reusable.",
+  "description": "Open PRs that bump pinned refs to quantman888/.github.",
   "iconName": "octicon git-pull-request",
   "categories": [
     "Automation",

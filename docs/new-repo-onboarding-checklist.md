@@ -36,7 +36,7 @@
 2. 将 `upstream_repo`、`upstream_branch` 改成真实上游。
 3. 如仓库还会继续引用中央 reusable，补 `workflow-ref-policy.yml`。
 4. 如希望以后统一升级 pin，补 `reusable-workflow-update-pr.yml`。
-   该 workflow 默认会一次升级当前仓 `.github/workflows/` 下所有指向 `quantman888/workflow-reusable` 的 central refs。
+   该 workflow 默认会一次升级当前仓 `.github/workflows/` 下所有指向 `quantman888/.github` 的 central refs。
 5. 手动触发一次 `fork-sync-upstream-main`，确认 GitHub App 写回成功。
 
 ## 4. Branch-split 仓接入步骤
@@ -50,7 +50,7 @@
 
 ## 5. 必备变量与密钥
 
-### 5.1 所有中央治理仓通用
+### 5.1 所有接入中央治理的 caller 仓通用
 
 | 名称 | 类型 | 是否必须 | 说明 |
 | --- | --- | --- | --- |
@@ -76,7 +76,7 @@
 ### 5.3 Public / Private 规则
 
 - public 仓可直接使用 organization secrets。
-- private 仓应通过 `quantman888/workflow-reusable` 的 `github-app-secret-sync.controlplane.yml` 自动下发 `GH_APP_*`。
+- private 仓应通过 `quantman888/.github` 的 `github-app-secret-sync.controlplane.yml` 自动下发 `GH_APP_*`。
 - 不要为某个单仓单独发长期 PAT 作为“临时兜底”。
 
 ## 6. 必改项
@@ -119,7 +119,7 @@
 ## 9. 不建议的做法
 
 - 不要使用长期 PAT 作为组织级通用凭据
-- 不要把 `workflow-reusable` 的逻辑复制进每个仓长期维护
+- 不要把 `quantman888/.github` 的 central reusable 逻辑复制进每个仓长期维护
 - 不要为新仓手工粘贴旧仓 workflow 后长期不回收
 - 不要允许 `uses:` 引用漂移到 `@main` 或 `@master`
 

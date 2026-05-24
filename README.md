@@ -1,22 +1,25 @@
 # quantman888/.github
 
-`quantman888/.github` 是 `quantman888` 组织的 GitHub 配置仓，不承载业务代码。
+`quantman888/.github` 是 `quantman888` 组织唯一的 GitHub workflow 治理仓，不承载业务代码。
 
-它只负责三类事情：
+它负责四类事情：
 
 - 提供组织级 GitHub Actions workflow templates，供新仓库从 Actions UI 直接选用
 - 维护新仓接入、升级、审计这三类组织级文档入口
+- 提供 reusable workflows 与控制面实现
+- 提供 shared composite actions
 - 固化一套长期可维护的 workflow 治理基线，避免各仓库各自复制、各自漂移
 
-它不负责运行时控制逻辑。真正执行 Docker 发布、分支同步、runner 探测、GitHub App 写回、批量更新 PR，以及 managed PR hardening 的地方仍然是 `quantman888/workflow-reusable`。
+旧独立控制面项目已硬切合入本仓。后续不再维护单独项目。
 
-## 仓库分工
+## 目录分工
 
-- `quantman888/.github`
+- `workflow-templates/`
   - 模板入口
   - 新仓 bootstrap
+- `docs/`
   - 接入说明、升级规范、组织审计
-- `quantman888/workflow-reusable`
+- `.github/workflows/`
   - 可复用工作流与控制面实现
   - GitHub App token minting
   - 私有仓 `GH_APP_*` 下发
@@ -24,6 +27,8 @@
   - fork sync / branch sync PR
   - reusable workflow ref 批量升级 PR
   - managed PR hardening（provenance context、merge-controller 信任判定、bot PR 持续更新）
+- `.github/actions/`
+  - shared composite actions
 
 ## 文档入口
 
@@ -31,18 +36,27 @@
 - [workflow 治理发布与升级规范](docs/workflow-governance-release-process.md)
 - [组织基线审计报告（2026-03-07）](docs/org-workflow-baseline-audit-2026-03-07.md)
 
+## 项目名约束
+
+仓库名保留为 `quantman888/.github`。
+
+- 组织级 workflow templates 需要组织内名为 `.github` 的特殊仓库提供 `workflow-templates/`
+- reusable workflows 本身不要求仓库名叫 `.github`，但只保留一个项目时，保留 `.github` 才不会丢组织模板入口
+- 跨仓调用 reusable workflow 时，路径形如 `quantman888/.github/.github/workflows/<file>@<ref>`；前一个 `.github` 是仓库名，后一个 `.github/workflows` 是仓库内目录
+
 ## 当前受控 control-plane pin
 
 当前模板默认 pin 到：
 
-- `quantman888/workflow-reusable@d9ca777c1c4318ea5b303357585644a479adf0a0`
+- `quantman888/.github@v1`
 
 规则：
 
 - 不允许把模板改成 `@main` 或 `@master`
-- 模板仓只更新“已验证通过”的受控 SHA
-- `workflow-reusable` 升级后，通过 caller 仓内的 `reusable-workflow-update-pr` 开 PR 做统一 bump
-- 模板层只保留入口与 blessed pin；managed PR hardening 语义始终以 `workflow-reusable` 实现为准
+- 模板只更新“已验证通过”的受控 SHA 或受控 `v*` tag
+- 硬切发布时需要把 `v1` tag 指到合入后的发布提交；如改用完整 SHA，统一替换模板中的 `@v1`
+- `.github/workflows/` 是运行时控制面；`workflow-templates/` 只保留 bootstrap 入口与 blessed pin
+- 控制面升级后，通过 caller 仓内的 `reusable-workflow-update-pr` 开 PR 做统一 bump
 - 通用 updater 采用固定分支 `automation/reusable-workflow-update`，调用方仓库不再按 target SHA 堆积 bot 分支
 
 ## 模板目录
@@ -55,7 +69,7 @@
   - 基于 digest 的 release promote 模板
 - `workflow-templates/reusable-workflow-update-pr.yml`
   - 升级中央 reusable ref 的 PR 模板
-  - 默认一次更新该仓 `.github/workflows/` 下所有指向 `quantman888/workflow-reusable` 的 central refs
+  - 默认一次更新该仓 `.github/workflows/` 下所有指向 `quantman888/.github` 的 central refs
 - `workflow-templates/workflow-ref-policy.yml`
   - `uses:` 引用 pin 策略模板
 - `workflow-templates/branch-sync-main-to-docker-pr.yml`
@@ -114,7 +128,7 @@ Docker 仓通常还需要：
 private 仓库不能把长期 PAT 当成通用方案。组织基线是：
 
 - 顶层长期凭据只保留 `GH_APP_ID` + `GH_APP_PRIVATE_KEY`
-- private 仓库所需的同名 secrets 通过 `quantman888/workflow-reusable` 内的 `.github/workflows/github-app-secret-sync.controlplane.yml` 自动下发
+- private 仓库所需的同名 secrets 通过 `quantman888/.github` 内的 `.github/workflows/github-app-secret-sync.controlplane.yml` 自动下发
 - 不维护硬编码仓库名单，新仓库在后续同步周期内自动纳入
 
 ## 当前组织覆盖概览（2026-03-07）
@@ -124,13 +138,13 @@ private 仓库不能把长期 PAT 当成通用方案。组织基线是：
 - 已完成非 Docker caller 的 policy / updater / runner-fallback 治理基线：`infra`
 - 定制治理仓，不应直接硬套 Docker 基线：`cortex`
 - 暂未进入这些模板的适用场景：`platform`、`dagster`
-- 控制面/模板基础设施仓：`workflow-reusable`、`.github`
+- 控制面/模板基础设施仓：`.github`
 
 详细结论见审计报告：[`docs/org-workflow-baseline-audit-2026-03-07.md`](docs/org-workflow-baseline-audit-2026-03-07.md)
 
 ## 运行规则
 
 - 模板是 bootstrap 入口，不是最终真相来源
-- 业务仓一旦接入，实际生效的是该仓自己的 workflow 文件和 `quantman888/workflow-reusable` 的可复用工作流
-- managed PR hardening 的策略边界也在 `workflow-reusable`：模板层不定义 provenance context 语义，不以 PR title/body 作为主信任根，也不派生多 PR 拓扑
+- 业务仓一旦接入，实际生效的是该仓自己的 workflow 文件和 `quantman888/.github` 的可复用工作流
+- managed PR hardening 的策略边界在 `.github/workflows/`：模板层不定义 provenance context 语义，不以 PR title/body 作为主信任根，也不派生多 PR 拓扑
 - 仓库级差异应只保留业务测试、镜像参数、分支模型等必要差异；不要把中央控制逻辑复制回业务仓长期分叉维护

@@ -1,7 +1,8 @@
 # quantman888 组织 workflow 基线审计报告（2026-03-07）
 
 审计时间：2026-03-07  
-审计范围：`quantman888` 组织下非 archived 仓库 9 个
+硬切更新：2026-05-24 已将原独立控制面仓合入 `.github`，当前基础设施口径按 `.github` 单仓计算。
+审计范围：`quantman888` 组织下非 archived 仓库 8 个
 
 - `cortex`
 - `dagster`
@@ -11,7 +12,6 @@
 - `mcp-didatodolist`
 - `mcphub-gateway`
 - `platform`
-- `workflow-reusable`
 
 ## 1. 审计口径
 
@@ -25,7 +25,7 @@
 | Fork 仓 | `fork-sync-upstream-main`，必要时补 `workflow-ref-policy` 与 `reusable-workflow-update-pr` |
 | Branch-split 仓 | `branch-sync-main-to-docker-pr` / `workflow-ref-policy` / `reusable-workflow-update-pr` |
 | 定制治理仓 | 不机械套模板，但应说明为何不适用并保留自己的验证闭环 |
-| 基础设施仓 | `.github` 与 `workflow-reusable` 自身不按 caller 模板基线考核 |
+| 基础设施仓 | `.github` 自身不按 caller 模板基线考核 |
 
 ## 2. 总览结论
 
@@ -36,7 +36,7 @@
 | 已纳入非 Docker caller 的 policy / updater / runner-fallback 治理基线 | `infra` |
 | 定制治理仓，模板部分适用 | `cortex` |
 | 当前无 workflow，暂待业务类型明确 | `platform`、`dagster` |
-| 组织基础设施仓，不按 caller 基线考核 | `.github`、`workflow-reusable` |
+| 组织基础设施仓，不按 caller 基线考核 | `.github` |
 
 ## 3. 仓库逐项审计
 
@@ -185,9 +185,9 @@
 - 与 `platform` 类似，目前没有足够事实判断应接入哪类模板
 - 等业务形态明确后再接入，不建议预先乱铺模板
 
-### 3.8 `workflow-reusable`
+### 3.8 `.github`
 
-类型：组织控制面仓  
+类型：组织模板入口 + 控制面单仓
 当前 workflow：
 
 - `branch-sync-pr.reusable.yml`
@@ -205,22 +205,11 @@
 
 说明：
 
-- 它是 `.github` 模板仓的运行时实现层
-- 它必须保持 release / policy / control plane 的可用性与可升级性
-- 审计重点不是“是否接入模板”，而是“是否继续作为唯一中央实现来源”
-
-### 3.9 `.github`
-
-类型：组织模板仓  
-当前 workflow：无 caller workflow 需求
-
-结论：这是组织模板入口仓，不按 caller 模板基线考核。
-
-说明：
-
 - 它负责 `workflow-templates/` 与组织文档
-- 它不应承载业务发布逻辑
+- 它同时负责 `.github/workflows/` 下的 reusable workflow 运行时实现
+- 它必须保持 release / policy / control plane 的可用性与可升级性
 - 它当前已提供 Docker、fork sync、branch sync、policy、upgrade PR 五类模板
+- 审计重点不是“是否接入模板”，而是“是否继续作为唯一中央实现来源”
 
 ## 4. 缺口与优先级
 
@@ -237,6 +226,6 @@
 - `ksrpc` 已完成 branch-sync / fork-sync / policy / updater 的组织级治理闭环，剩余差异主要是仓库特化的 Docker 发布实现
 - `cortex` 属于定制治理仓，应保持单独治理路径，不应被误纳入 Docker 模板基线
 - `infra` 已进入非 Docker caller 的治理闭环，后续若继续接中央 reusable 不需要再补基线文件
-- `.github` 与 `workflow-reusable` 的职责边界已经清晰：前者负责模板入口，后者负责运行时 control plane
+- `.github` 已统一承载模板入口、组织文档与运行时 control plane
 
 下一步最有价值的动作不是继续造新模板，而是根据业务形态决定 `platform` / `dagster` 未来各自该接哪类模板。
