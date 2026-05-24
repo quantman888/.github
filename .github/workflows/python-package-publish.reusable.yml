@@ -27,6 +27,16 @@ on:
         required: false
         type: boolean
         default: true
+      PYTHON_TEST_COMMAND:
+        description: "Optional shell command run before build, typically install plus tests"
+        required: false
+        type: string
+        default: ""
+      PYTHON_PRE_BUILD_COMMAND:
+        description: "Optional shell command run immediately before python -m build"
+        required: false
+        type: string
+        default: ""
       PYTHON_VERSION:
         description: "Python version used for build/upload"
         required: false
@@ -37,6 +47,36 @@ on:
         required: false
         type: string
         default: '"ubuntu-latest"'
+      INFISICAL_DOMAIN:
+        description: "Infisical base URL used when INFISICAL_IDENTITY_ID is set"
+        required: false
+        type: string
+        default: "https://app.infisical.com"
+      INFISICAL_PROJECT_SLUG:
+        description: "Infisical project slug used when INFISICAL_IDENTITY_ID is set"
+        required: false
+        type: string
+        default: ""
+      INFISICAL_ENV_SLUG:
+        description: "Infisical environment slug used when INFISICAL_IDENTITY_ID is set"
+        required: false
+        type: string
+        default: ""
+      INFISICAL_SECRET_PATH:
+        description: "Infisical secret path used when INFISICAL_IDENTITY_ID is set"
+        required: false
+        type: string
+        default: "/"
+      INFISICAL_IDENTITY_ID:
+        description: "Infisical Machine Identity ID for OIDC auth. Empty keeps secret-based credentials only."
+        required: false
+        type: string
+        default: ""
+      INFISICAL_OIDC_AUDIENCE:
+        description: "Optional GitHub OIDC audience for Infisical"
+        required: false
+        type: string
+        default: ""
     outputs:
       package_name:
         description: "Resolved Python package name from built metadata"
@@ -61,6 +101,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   python_package_publish:
@@ -92,6 +133,64 @@ jobs:
           set -euo pipefail
           python -X utf8 -m pip install --upgrade pip
           python -X utf8 -m pip install --upgrade build twine
+
+      - name: Fetch Infisical secrets
+        if: ${{ inputs.INFISICAL_IDENTITY_ID != '' }}
+        uses: Infisical/secrets-action@77ab1f4ccd183a543cb5b42435fbd181189f4995 # v1.0.16
+        with:
+          method: oidc
+          identity-id: ${{ inputs.INFISICAL_IDENTITY_ID }}
+          domain: ${{ inputs.INFISICAL_DOMAIN }}
+          project-slug: ${{ inputs.INFISICAL_PROJECT_SLUG }}
+          env-slug: ${{ inputs.INFISICAL_ENV_SLUG }}
+          secret-path: ${{ inputs.INFISICAL_SECRET_PATH }}
+          oidc-audience: ${{ inputs.INFISICAL_OIDC_AUDIENCE }}
+          export-type: env
+
+      - name: Resolve Twine credentials
+        env:
+          NEXUS_USERNAME_FROM_SECRET: ${{ secrets.nexus_username }}
+          NEXUS_PASSWORD_FROM_SECRET: ${{ secrets.nexus_password }}
+        run: |
+          set -euo pipefail
+
+          twine_username="${NEXUS_REGISTRY_USERNAME:-${NEXUS_USERNAME_FROM_SECRET:-}}"
+          twine_password="${NEXUS_REGISTRY_PASSWORD:-${NEXUS_PASSWORD_FROM_SECRET:-}}"
+
+          if [[ -n "${twine_password}" ]]; then
+            printf '::add-mask::%s\n' "${twine_password}"
+          fi
+
+          {
+            echo "TWINE_USERNAME<<__TWINE_USERNAME__"
+            printf '%s\n' "${twine_username}"
+            echo "__TWINE_USERNAME__"
+            echo "TWINE_PASSWORD<<__TWINE_PASSWORD__"
+            printf '%s\n' "${twine_password}"
+            echo "__TWINE_PASSWORD__"
+          } >> "${GITHUB_ENV}"
+
+      - name: Run test command
+        if: ${{ inputs.PYTHON_TEST_COMMAND != '' }}
+        env:
+          PYTHON_TEST_COMMAND: ${{ inputs.PYTHON_TEST_COMMAND }}
+        run: |
+          set -euo pipefail
+          script="$(mktemp)"
+          trap 'rm -f "${script}"' EXIT
+          printf '%s\n' "${PYTHON_TEST_COMMAND}" > "${script}"
+          bash "${script}"
+
+      - name: Run pre-build command
+        if: ${{ inputs.PYTHON_PRE_BUILD_COMMAND != '' }}
+        env:
+          PYTHON_PRE_BUILD_COMMAND: ${{ inputs.PYTHON_PRE_BUILD_COMMAND }}
+        run: |
+          set -euo pipefail
+          script="$(mktemp)"
+          trap 'rm -f "${script}"' EXIT
+          printf '%s\n' "${PYTHON_PRE_BUILD_COMMAND}" > "${script}"
+          bash "${script}"
 
       - name: Build distributions
         run: |
@@ -145,8 +244,6 @@ jobs:
           PYTHON_PACKAGE_SIMPLE_URL: ${{ inputs.PYTHON_PACKAGE_SIMPLE_URL }}
           PACKAGE_NAME: ${{ steps.metadata.outputs.package_name }}
           DIST_FILES: ${{ steps.metadata.outputs.dist_files }}
-          TWINE_USERNAME: ${{ secrets.nexus_username }}
-          TWINE_PASSWORD: ${{ secrets.nexus_password }}
         run: |
           set -euo pipefail
           python -X utf8 <<'PY'
@@ -244,8 +341,6 @@ jobs:
           DIST_FILES: ${{ steps.metadata.outputs.dist_files }}
           EXISTING_FILE_COUNT: ${{ steps.upload_plan.outputs.existing_file_count }}
           UPLOAD_FILES: ${{ steps.upload_plan.outputs.upload_files }}
-          TWINE_USERNAME: ${{ secrets.nexus_username }}
-          TWINE_PASSWORD: ${{ secrets.nexus_password }}
         run: |
           set -euo pipefail
 
@@ -258,6 +353,11 @@ jobs:
           if (( ${#upload_files[@]} == 0 )); then
             echo "upload_result=skipped-existing" >> "${GITHUB_OUTPUT}"
             exit 0
+          fi
+
+          if [[ -z "${TWINE_USERNAME:-}" || -z "${TWINE_PASSWORD:-}" ]]; then
+            echo "TWINE credentials are required for upload. Provide Infisical NEXUS_REGISTRY_USERNAME/NEXUS_REGISTRY_PASSWORD or nexus_username/nexus_password secrets." >&2
+            exit 1
           fi
 
           upload_log="$(mktemp)"
@@ -283,8 +383,6 @@ jobs:
           PYTHON_PACKAGE_TRUSTED_HOST: ${{ inputs.PYTHON_PACKAGE_TRUSTED_HOST }}
           WHEEL_FILENAME: ${{ steps.metadata.outputs.wheel_filename }}
           WHEEL_SHA256: ${{ steps.metadata.outputs.wheel_sha256 }}
-          TWINE_USERNAME: ${{ secrets.nexus_username }}
-          TWINE_PASSWORD: ${{ secrets.nexus_password }}
         run: |
           set -euo pipefail
           python -X utf8 <<'PY'

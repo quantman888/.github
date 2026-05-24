@@ -1,0 +1,9 @@
+{
+  "name": "Python Publish To Nexus",
+  "description": "Build, test, and optionally publish a Python package to Nexus PyPI using the central reusable workflow.",
+  "iconName": "octicon package",
+  "categories": [
+    "Python",
+    "Deployment"
+  ]
+}

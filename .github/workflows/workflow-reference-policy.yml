@@ -1,6 +1,7 @@
 name: Workflow Reference Policy
 
 on:
+  workflow_call:
   pull_request:
     paths:
       - ".github/workflows/*.yml"

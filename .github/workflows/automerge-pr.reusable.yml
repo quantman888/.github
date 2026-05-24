@@ -1,0 +1,106 @@
+name: Automerge PR Reusable
+
+on:
+  workflow_call:
+    inputs:
+      pr_url:
+        description: "Pull request URL to enable auto-merge for"
+        required: true
+        type: string
+      expected_base_branch:
+        description: "Expected PR base branch"
+        required: true
+        type: string
+      expected_head_branch:
+        description: "Expected PR head branch"
+        required: true
+        type: string
+      merge_method:
+        description: "Merge method. Use merge for upstream branch sync ancestry."
+        required: false
+        type: string
+        default: merge
+      RUNS_ON_JSON:
+        description: "JSON value for runs-on (for example: \"ubuntu-latest\" or [\"self-hosted\",\"linux\"])"
+        required: false
+        type: string
+        default: '"ubuntu-latest"'
+    secrets:
+      GH_APP_ID:
+        required: true
+      GH_APP_PRIVATE_KEY:
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge_pr:
+    name: Enable PR Auto-Merge
+    runs-on: ${{ fromJSON(inputs.RUNS_ON_JSON) }}
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Generate GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Validate PR and enable auto-merge
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          PR_URL: ${{ inputs.pr_url }}
+          EXPECTED_BASE_BRANCH: ${{ inputs.expected_base_branch }}
+          EXPECTED_HEAD_BRANCH: ${{ inputs.expected_head_branch }}
+          MERGE_METHOD: ${{ inputs.merge_method }}
+          EXPECTED_APP_LOGIN: ${{ steps.app_token.outputs.app-slug }}[bot]
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${PR_URL}" ]]; then
+            echo "pr_url is required" >&2
+            exit 1
+          fi
+
+          if [[ "${MERGE_METHOD}" != "merge" ]]; then
+            echo "Only merge_method=merge is supported for branch-sync PRs." >&2
+            exit 1
+          fi
+
+          state="$(gh pr view "${PR_URL}" --json state --jq '.state')"
+          base_ref="$(gh pr view "${PR_URL}" --json baseRefName --jq '.baseRefName')"
+          head_ref="$(gh pr view "${PR_URL}" --json headRefName --jq '.headRefName')"
+          author_login="$(gh pr view "${PR_URL}" --json author --jq '.author.login')"
+          is_cross_repo="$(gh pr view "${PR_URL}" --json isCrossRepository --jq '.isCrossRepository')"
+
+          if [[ "${state}" != "OPEN" ]]; then
+            echo "PR must be open, got state=${state}" >&2
+            exit 1
+          fi
+          if [[ "${base_ref}" != "${EXPECTED_BASE_BRANCH}" ]]; then
+            echo "PR base branch mismatch: got ${base_ref}, expected ${EXPECTED_BASE_BRANCH}" >&2
+            exit 1
+          fi
+          if [[ "${head_ref}" != "${EXPECTED_HEAD_BRANCH}" ]]; then
+            echo "PR head branch mismatch: got ${head_ref}, expected ${EXPECTED_HEAD_BRANCH}" >&2
+            exit 1
+          fi
+          if [[ "${is_cross_repo}" != "false" ]]; then
+            echo "Refusing to auto-merge cross-repository PR ${PR_URL}" >&2
+            exit 1
+          fi
+          if [[ "${author_login}" != "${EXPECTED_APP_LOGIN}" ]]; then
+            echo "PR author mismatch: got ${author_login}, expected ${EXPECTED_APP_LOGIN}" >&2
+            exit 1
+          fi
+
+          gh pr merge "${PR_URL}" --auto --merge
