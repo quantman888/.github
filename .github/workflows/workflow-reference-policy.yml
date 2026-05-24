@@ -1,4 +1,4 @@
-name: REUSABLE / Workflow Reference Policy
+name: "[REUSABLE] Workflow Reference Policy"
 
 on:
   workflow_call:

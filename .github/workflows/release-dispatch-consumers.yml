@@ -1,4 +1,4 @@
-name: AUTO / Release Dispatch Consumers
+name: "[AUTO] Release Dispatch Consumers"
 
 on:
   release:

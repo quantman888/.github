@@ -1,4 +1,4 @@
-name: REUSABLE / Automerge PR
+name: "[REUSABLE] Automerge PR"
 
 on:
   workflow_call:

@@ -1,4 +1,4 @@
-name: REUSABLE / Docker Promote
+name: "[REUSABLE] Docker Promote"
 
 on:
   workflow_call:

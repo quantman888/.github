@@ -1,4 +1,4 @@
-name: REUSABLE / Branch Sync PR
+name: "[REUSABLE] Branch Sync PR"
 
 on:
   workflow_call:
